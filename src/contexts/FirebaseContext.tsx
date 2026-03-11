@@ -55,9 +55,23 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  const [isSigningIn, setIsSigningIn] = useState(false);
+
   const signIn = async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    if (isSigningIn) return;
+    setIsSigningIn(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error: any) {
+      if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
+        console.log('Sign-in popup was closed or cancelled.');
+      } else {
+        console.error('Sign-in error:', error);
+      }
+    } finally {
+      setIsSigningIn(false);
+    }
   };
 
   const logout = async () => {

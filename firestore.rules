@@ -46,6 +46,12 @@ service cloud.firestore {
     //   - newsletterSubtitle: string
     //   - newsletterDescription: string
     //   - footerText: string
+    //   - aboutTitle: string (optional)
+    //   - aboutText: string (optional)
+    //   - contactEmail: string (optional)
+    //   - contactPhone: string (optional)
+    //   - contactAddress: string (optional)
+    //   - banners: list of maps (optional)
     //
     // ===============================================================
 
@@ -119,7 +125,7 @@ service cloud.firestore {
     }
 
     function isValidSettings(data) {
-      return hasOnlyAllowedFields(['heroTitle', 'heroSubtitle', 'heroImages', 'featuredTitle', 'featuredSubtitle', 'newsletterTitle', 'newsletterSubtitle', 'newsletterDescription', 'footerText']) &&
+      return hasOnlyAllowedFields(['heroTitle', 'heroSubtitle', 'heroImages', 'featuredTitle', 'featuredSubtitle', 'newsletterTitle', 'newsletterSubtitle', 'newsletterDescription', 'footerText', 'aboutTitle', 'aboutText', 'contactEmail', 'contactPhone', 'contactAddress', 'banners']) &&
              data.heroTitle is string &&
              data.heroSubtitle is string &&
              data.heroImages is list &&
@@ -128,7 +134,13 @@ service cloud.firestore {
              data.newsletterTitle is string &&
              data.newsletterSubtitle is string &&
              data.newsletterDescription is string &&
-             data.footerText is string;
+             data.footerText is string &&
+             (!('aboutTitle' in data) || data.aboutTitle is string) &&
+             (!('aboutText' in data) || data.aboutText is string) &&
+             (!('contactEmail' in data) || data.contactEmail is string) &&
+             (!('contactPhone' in data) || data.contactPhone is string) &&
+             (!('contactAddress' in data) || data.contactAddress is string) &&
+             (!('banners' in data) || data.banners is list);
     }
 
     // ===============================================================

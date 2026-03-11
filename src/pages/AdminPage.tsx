@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useFirebase, OperationType, handleFirestoreError } from '../contexts/FirebaseContext';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
-import { db, storage } from '../firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db } from '../firebase';
+import { supabase, SUPABASE_BUCKET } from '../supabase';
+import imageCompression from 'browser-image-compression';
 import { Product, SiteContent } from '../types';
 import { cn } from '../utils';
 import { Plus, Edit2, Trash2, Loader2, X, Save, Image as ImageIcon, ArrowLeft, Database, Lock, ShieldCheck, User, Settings, Package, Upload } from 'lucide-react';
@@ -41,26 +42,51 @@ export default function AdminPage() {
       signIn();
       return null;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      alert('File is too large. Maximum size is 5MB.');
-      return null;
-    }
+    
     setIsUploading(true);
     try {
-      console.log(`Starting upload to ${path}...`);
-      const storageRef = ref(storage, `${path}/${Date.now()}_${file.name}`);
-      const result = await uploadBytes(storageRef, file);
-      console.log('Upload successful:', result);
-      const url = await getDownloadURL(storageRef);
-      return url;
+      let fileToUpload = file;
+
+      // Only compress if it's an image and not a GIF (GIF compression is complex client-side)
+      if (file.type.startsWith('image/') && !file.type.includes('gif')) {
+        console.log('Compressing image extremely...');
+        const options = {
+          maxSizeMB: 0.1, // Super extreme compression (100KB target)
+          maxWidthOrHeight: 1280,
+          useWebWorker: true,
+          initialQuality: 0.5,
+        };
+        
+        try {
+          const compressedFile = await imageCompression(file, options);
+          console.log(`Compression complete: ${(file.size / 1024).toFixed(2)}KB -> ${(compressedFile.size / 1024).toFixed(2)}KB`);
+          fileToUpload = compressedFile;
+        } catch (compressionError) {
+          console.warn('Compression failed, uploading original:', compressionError);
+        }
+      }
+
+      console.log(`Starting Supabase upload to ${path}...`);
+      const fileName = `${path}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+      
+      const { data, error } = await supabase.storage
+        .from(SUPABASE_BUCKET)
+        .upload(fileName, fileToUpload, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from(SUPABASE_BUCKET)
+        .getPublicUrl(fileName);
+
+      console.log('Supabase upload successful:', publicUrl);
+      return publicUrl;
     } catch (error: any) {
-      console.error('Upload failed details:', {
-        message: error.message,
-        code: error.code,
-        name: error.name,
-        serverResponse: error.serverResponse
-      });
-      alert(`Upload failed: ${error.message || 'Unknown error'}`);
+      console.error('Supabase upload failed details:', error);
+      alert(`Upload failed: ${error.message || 'Unknown error'}. Make sure your Supabase bucket "${SUPABASE_BUCKET}" exists and is public.`);
       return null;
     } finally {
       setIsUploading(false);
@@ -521,7 +547,7 @@ export default function AdminPage() {
                               onChange={async (e) => {
                                 const file = e.target.files?.[0];
                                 if (file) {
-                                  const uploadedUrl = await handleFileUpload(file, 'banners');
+                                  const uploadedUrl = await handleFileUpload(file, 'hero');
                                   if (uploadedUrl) {
                                     const newImages = [...siteFormData.heroImages];
                                     newImages[index] = uploadedUrl;
@@ -549,6 +575,177 @@ export default function AdminPage() {
                         )}
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Promotional Banners</label>
+                    <button
+                      type="button"
+                      onClick={() => setSiteFormData({
+                        ...siteFormData,
+                        banners: [...(siteFormData.banners || []), { id: Date.now().toString(), image: '', title: '', subtitle: '', link: '' }]
+                      })}
+                      className="text-xs font-bold bg-black text-white px-3 py-1 rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> Add Banner
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 gap-6">
+                    {(siteFormData.banners || []).map((banner, index) => (
+                      <div key={banner.id} className="p-6 bg-gray-50 rounded-2xl space-y-4 relative group">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newBanners = siteFormData.banners?.filter((_, i) => i !== index);
+                            setSiteFormData({ ...siteFormData, banners: newBanners });
+                          }}
+                          className="absolute right-4 top-4 p-2 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Banner Title</label>
+                            <input
+                              type="text"
+                              value={banner.title}
+                              onChange={(e) => {
+                                const newBanners = [...(siteFormData.banners || [])];
+                                newBanners[index] = { ...banner, title: e.target.value };
+                                setSiteFormData({ ...siteFormData, banners: newBanners });
+                              }}
+                              className="w-full bg-white border border-transparent rounded-xl px-4 py-2 focus:outline-none focus:border-black transition-all"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Banner Subtitle</label>
+                            <input
+                              type="text"
+                              value={banner.subtitle}
+                              onChange={(e) => {
+                                const newBanners = [...(siteFormData.banners || [])];
+                                newBanners[index] = { ...banner, subtitle: e.target.value };
+                                setSiteFormData({ ...siteFormData, banners: newBanners });
+                              }}
+                              className="w-full bg-white border border-transparent rounded-xl px-4 py-2 focus:outline-none focus:border-black transition-all"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Image URL</label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={banner.image}
+                                onChange={(e) => {
+                                  const newBanners = [...(siteFormData.banners || [])];
+                                  newBanners[index] = { ...banner, image: e.target.value };
+                                  setSiteFormData({ ...siteFormData, banners: newBanners });
+                                }}
+                                className="flex-1 bg-white border border-transparent rounded-xl px-4 py-2 focus:outline-none focus:border-black transition-all"
+                              />
+                              <label className="cursor-pointer p-2 bg-white hover:bg-gray-100 rounded-xl transition-colors flex items-center justify-center border border-gray-100">
+                                <Upload className="w-4 h-4" />
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept="image/*"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      const uploadedUrl = await handleFileUpload(file, 'banners');
+                                      if (uploadedUrl) {
+                                        const newBanners = [...(siteFormData.banners || [])];
+                                        newBanners[index] = { ...banner, image: uploadedUrl };
+                                        setSiteFormData({ ...siteFormData, banners: newBanners });
+                                      }
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Link URL</label>
+                            <input
+                              type="text"
+                              value={banner.link}
+                              onChange={(e) => {
+                                const newBanners = [...(siteFormData.banners || [])];
+                                newBanners[index] = { ...banner, link: e.target.value };
+                                setSiteFormData({ ...siteFormData, banners: newBanners });
+                              }}
+                              className="w-full bg-white border border-transparent rounded-xl px-4 py-2 focus:outline-none focus:border-black transition-all"
+                            />
+                          </div>
+                        </div>
+                        {banner.image && (
+                          <div className="aspect-[21/9] rounded-xl overflow-hidden bg-white border border-gray-100">
+                            <img src={banner.image} alt={banner.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-6 pt-6 border-t border-gray-100">
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-gray-900">About Us Section</h3>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-gray-400">About Title</label>
+                      <input
+                        type="text"
+                        value={siteFormData.aboutTitle || ''}
+                        onChange={(e) => setSiteFormData({ ...siteFormData, aboutTitle: e.target.value })}
+                        className="w-full bg-gray-50 border border-transparent rounded-xl px-4 py-3 focus:outline-none focus:bg-white focus:border-black transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-gray-400">About Text</label>
+                      <textarea
+                        rows={4}
+                        value={siteFormData.aboutText || ''}
+                        onChange={(e) => setSiteFormData({ ...siteFormData, aboutText: e.target.value })}
+                        className="w-full bg-gray-50 border border-transparent rounded-xl px-4 py-3 focus:outline-none focus:bg-white focus:border-black transition-all resize-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-6 pt-6 border-t border-gray-100">
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-gray-900">Contact Information</h3>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Contact Email</label>
+                      <input
+                        type="email"
+                        value={siteFormData.contactEmail || ''}
+                        onChange={(e) => setSiteFormData({ ...siteFormData, contactEmail: e.target.value })}
+                        className="w-full bg-gray-50 border border-transparent rounded-xl px-4 py-3 focus:outline-none focus:bg-white focus:border-black transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Contact Phone</label>
+                      <input
+                        type="text"
+                        value={siteFormData.contactPhone || ''}
+                        onChange={(e) => setSiteFormData({ ...siteFormData, contactPhone: e.target.value })}
+                        className="w-full bg-gray-50 border border-transparent rounded-xl px-4 py-3 focus:outline-none focus:bg-white focus:border-black transition-all"
+                      />
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Contact Address</label>
+                      <input
+                        type="text"
+                        value={siteFormData.contactAddress || ''}
+                        onChange={(e) => setSiteFormData({ ...siteFormData, contactAddress: e.target.value })}
+                        className="w-full bg-gray-50 border border-transparent rounded-xl px-4 py-3 focus:outline-none focus:bg-white focus:border-black transition-all"
+                      />
+                    </div>
                   </div>
                 </div>
 

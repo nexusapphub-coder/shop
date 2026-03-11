@@ -234,6 +234,31 @@ function HomePage() {
       <main>
         <Hero />
 
+        {siteContent.banners && siteContent.banners.length > 0 && (
+          <section className="max-w-7xl mx-auto px-6 py-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {siteContent.banners.map((banner) => (
+                <Link 
+                  key={banner.id} 
+                  to={banner.link || '#'} 
+                  className="group relative aspect-[16/9] rounded-3xl overflow-hidden bg-gray-100"
+                >
+                  <img 
+                    src={banner.image} 
+                    alt={banner.title} 
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent p-8 flex flex-col justify-end">
+                    <h3 className="text-white text-2xl font-bold tracking-tight">{banner.title}</h3>
+                    {banner.subtitle && <p className="text-white/80 text-sm mt-1">{banner.subtitle}</p>}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section className="max-w-7xl mx-auto px-6 py-24 space-y-12">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="space-y-2">
@@ -284,6 +309,39 @@ function HomePage() {
             </div>
           )}
         </section>
+
+        {siteContent.aboutTitle && (
+          <section className="max-w-7xl mx-auto px-6 py-24 border-t border-gray-100">
+            <div className="max-w-3xl space-y-6">
+              <h2 className="text-4xl font-bold tracking-tighter">{siteContent.aboutTitle}</h2>
+              <p className="text-xl text-gray-500 leading-relaxed whitespace-pre-line">
+                {siteContent.aboutText}
+              </p>
+              {(siteContent.contactEmail || siteContent.contactPhone) && (
+                <div className="pt-6 flex flex-wrap gap-8">
+                  {siteContent.contactEmail && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Email Us</p>
+                      <a href={`mailto:${siteContent.contactEmail}`} className="text-sm font-medium hover:underline">{siteContent.contactEmail}</a>
+                    </div>
+                  )}
+                  {siteContent.contactPhone && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Call Us</p>
+                      <p className="text-sm font-medium">{siteContent.contactPhone}</p>
+                    </div>
+                  )}
+                  {siteContent.contactAddress && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Visit Us</p>
+                      <p className="text-sm font-medium">{siteContent.contactAddress}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         <section className="bg-black text-white py-24">
           <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center">

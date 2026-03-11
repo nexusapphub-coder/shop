@@ -16,7 +16,21 @@ const DEFAULT_CONTENT: SiteContent = {
   newsletterTitle: 'JOIN THE VIBE',
   newsletterSubtitle: 'GET 15% OFF YOUR FIRST ORDER',
   newsletterDescription: 'Be the first to know about new drops, exclusive collections, and seasonal sales.',
-  footerText: '© 2026 VIBESHOP. All rights reserved.'
+  footerText: '© 2026 VIBESHOP. All rights reserved.',
+  aboutTitle: 'Our Story',
+  aboutText: 'VIBESHOP started with a simple idea: to bring the best of modern design to everyone. We believe that the objects you surround yourself with should be as beautiful as they are functional.',
+  contactEmail: 'hello@vibeshop.com',
+  contactPhone: '+1 (555) 000-0000',
+  contactAddress: '123 Vibe Street, Design District, NY 10001',
+  banners: [
+    {
+      id: '1',
+      image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&q=80&w=1920',
+      title: 'Summer Collection',
+      subtitle: 'Up to 50% off',
+      link: '/category/Cloths'
+    }
+  ]
 };
 
 export function useSiteContent() {

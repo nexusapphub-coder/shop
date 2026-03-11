@@ -58,7 +58,25 @@
         "newsletterTitle": { "type": "string" },
         "newsletterSubtitle": { "type": "string" },
         "newsletterDescription": { "type": "string" },
-        "footerText": { "type": "string" }
+        "footerText": { "type": "string" },
+        "aboutTitle": { "type": "string" },
+        "aboutText": { "type": "string" },
+        "contactEmail": { "type": "string" },
+        "contactPhone": { "type": "string" },
+        "contactAddress": { "type": "string" },
+        "banners": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "image": { "type": "string" },
+              "title": { "type": "string" },
+              "subtitle": { "type": "string" },
+              "link": { "type": "string" }
+            }
+          }
+        }
       },
       "required": ["heroTitle", "heroSubtitle", "heroImages", "featuredTitle", "featuredSubtitle", "newsletterTitle", "newsletterSubtitle", "newsletterDescription", "footerText"]
     }
