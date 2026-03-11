@@ -1,0 +1,84 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A shopping product",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
+        "image": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviews": { "type": "number" },
+        "stock": { "type": "integer" }
+      },
+      "required": ["id", "name", "price", "category", "image"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role", "createdAt"]
+    },
+    "CartItem": {
+      "title": "CartItem",
+      "description": "An item in a user's cart",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "quantity": { "type": "integer" },
+        "image": { "type": "string" },
+        "category": { "type": "string" }
+      },
+      "required": ["id", "name", "price", "quantity"]
+    },
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Global website content settings",
+      "type": "object",
+      "properties": {
+        "heroTitle": { "type": "string" },
+        "heroSubtitle": { "type": "string" },
+        "heroImages": { "type": "array", "items": { "type": "string" } },
+        "featuredTitle": { "type": "string" },
+        "featuredSubtitle": { "type": "string" },
+        "newsletterTitle": { "type": "string" },
+        "newsletterSubtitle": { "type": "string" },
+        "newsletterDescription": { "type": "string" },
+        "footerText": { "type": "string" }
+      },
+      "required": ["heroTitle", "heroSubtitle", "heroImages", "featuredTitle", "featuredSubtitle", "newsletterTitle", "newsletterSubtitle", "newsletterDescription", "footerText"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of all products"
+    },
+    "/settings/{docId}": {
+      "schema": "SiteSettings",
+      "description": "Global site configuration and content"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles"
+    },
+    "/users/{userId}/cart/{itemId}": {
+      "schema": "CartItem",
+      "description": "User's shopping cart items"
+    }
+  }
+}
