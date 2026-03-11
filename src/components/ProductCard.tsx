@@ -1,7 +1,7 @@
 import { Star, ShoppingBag, Sparkles, Eye } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Product } from '../types';
-import { formatPrice } from '../utils';
+import { formatPrice, cn } from '../utils';
 import { Link } from 'react-router-dom';
 
 interface ProductCardProps {
@@ -20,7 +20,7 @@ export default function ProductCard({ product, onAddToCart, onBuyNow, onShowStyl
       viewport={{ once: true }}
       className="group relative"
     >
-      <div className="aspect-[3/4] overflow-hidden rounded-2xl bg-gray-100 relative">
+      <div className="aspect-square overflow-hidden rounded-xl bg-gray-100 relative">
         <Link to={`/product/${product.id}`}>
           <img
             src={product.image}
@@ -29,45 +29,63 @@ export default function ProductCard({ product, onAddToCart, onBuyNow, onShowStyl
             referrerPolicy="no-referrer"
           />
         </Link>
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 pointer-events-none" />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 pointer-events-none" />
         
-        <div className="absolute bottom-4 left-4 right-4 flex flex-col gap-2 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
+        <div className="absolute top-1.5 right-1.5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300">
           <button
-            onClick={() => onBuyNow(product)}
-            className="w-full bg-white text-black py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-50 active:scale-95 shadow-xl"
+            onClick={() => onShowStyleGuide(product)}
+            className="p-2 lg:p-1.5 bg-white/90 backdrop-blur-md text-black rounded-lg hover:bg-white transition-colors active:scale-95 shadow-lg"
+            title="AI Style Guide"
           >
-            Buy Now
+            <Sparkles className="w-3.5 h-3.5 lg:w-3 lg:h-3 text-amber-500" />
           </button>
-          <div className="flex gap-2">
+        </div>
+      </div>
+      <div className="mt-1.5 space-y-0.5">
+        <Link to={`/product/${product.id}`}>
+          <h3 className="text-xs font-bold text-gray-900 hover:underline line-clamp-1 leading-tight">{product.name}</h3>
+        </Link>
+        <div className="flex items-center justify-between gap-1">
+          <div className="flex flex-col">
+            <p className="text-sm font-black text-black">{formatPrice(product.price)}</p>
+            {product.isStockOut && (
+              <span className="text-[9px] font-bold text-red-500 uppercase tracking-tighter">Stock Out</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
             <button
               onClick={() => onAddToCart(product)}
-              className="flex-1 bg-black text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-gray-900 active:scale-95 shadow-xl text-xs"
+              disabled={product.isStockOut}
+              className={cn(
+                "p-2 lg:p-1.5 rounded-md transition-all active:scale-90",
+                product.isStockOut 
+                  ? "bg-gray-50 text-gray-300 cursor-not-allowed" 
+                  : "bg-gray-100 text-black hover:bg-black hover:text-white"
+              )}
+              title="Add to Cart"
             >
-              <ShoppingBag className="w-3 h-3" />
-              Add to Cart
+              <ShoppingBag className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
             </button>
             <button
-              onClick={() => onShowStyleGuide(product)}
-              className="flex-1 bg-white/20 backdrop-blur-md text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-white/30 transition-colors active:scale-95 shadow-xl text-[10px]"
+              onClick={() => onBuyNow(product)}
+              disabled={product.isStockOut}
+              className={cn(
+                "px-3 py-1.5 lg:px-2.5 lg:py-1.5 text-[11px] lg:text-xs font-bold rounded-md transition-all active:scale-90",
+                product.isStockOut
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-black text-white hover:bg-gray-800"
+              )}
             >
-              <Sparkles className="w-3 h-3 text-amber-400" />
-              AI Guide
+              Buy
             </button>
           </div>
         </div>
-      </div>
-      <div className="mt-4 space-y-1">
-        <div className="flex justify-between items-start">
-          <Link to={`/product/${product.id}`}>
-            <h3 className="text-sm font-medium text-gray-900 hover:underline">{product.name}</h3>
-          </Link>
-          <p className="text-sm font-bold text-gray-900">{formatPrice(product.price)}</p>
-        </div>
-        <p className="text-xs text-gray-500 uppercase tracking-wider">{product.category}</p>
-        <div className="flex items-center gap-1">
-          <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-          <span className="text-xs font-medium text-gray-700">{product.rating}</span>
-          <span className="text-xs text-gray-400">({product.reviews})</span>
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] text-gray-400 uppercase tracking-tighter font-bold">{product.category}</p>
+          <div className="flex items-center gap-0.5">
+            <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
+            <span className="text-[10px] font-bold text-gray-700">{product.rating}</span>
+          </div>
         </div>
       </div>
     </motion.div>

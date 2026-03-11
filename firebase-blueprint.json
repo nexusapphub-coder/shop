@@ -116,12 +116,29 @@
         }
       },
       "required": ["heroTitle", "heroSubtitle", "heroImages", "featuredTitle", "featuredSubtitle", "newsletterTitle", "newsletterSubtitle", "newsletterDescription", "footerText"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "A product review",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "rating", "comment", "createdAt"]
     }
   },
   "firestore": {
     "/products/{productId}": {
       "schema": "Product",
       "description": "Collection of all products"
+    },
+    "/products/{productId}/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Product reviews"
     },
     "/settings/{docId}": {
       "schema": "SiteSettings",

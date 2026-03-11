@@ -13,9 +13,11 @@ service cloud.firestore {
     //   - price: number (required, >0)
     //   - category: string (required, <50 chars)
     //   - image: string (required, valid URL)
+    //   - images: list of strings (optional, valid URLs)
     //   - rating: number (optional, 0-5)
     //   - reviews: number (optional, >=0)
     //   - stock: number (optional, >=0)
+    //   - isStockOut: boolean (optional)
     //
     // Collection: users
     // Fields:
@@ -25,6 +27,7 @@ service cloud.firestore {
     //   - photoURL: string (optional, valid URL)
     //   - role: string (required, 'admin' or 'user')
     //   - createdAt: string (required, ISO 8601)
+    //   - wishlist: list of strings (optional)
     //
     // Collection: users/{userId}/cart
     // Fields:
@@ -46,12 +49,21 @@ service cloud.firestore {
     //   - newsletterSubtitle: string
     //   - newsletterDescription: string
     //   - footerText: string
+    //   - shippingText: string (optional)
     //   - aboutTitle: string (optional)
     //   - aboutText: string (optional)
     //   - contactEmail: string (optional)
     //   - contactPhone: string (optional)
     //   - contactAddress: string (optional)
     //   - banners: list of maps (optional)
+    //
+    // Collection: products/{productId}/reviews
+    // Fields:
+    //   - userId: string (required, matches auth.uid)
+    //   - userName: string (required)
+    //   - rating: number (required, 1-5)
+    //   - comment: string (required, <1000 chars)
+    //   - createdAt: string (required, ISO 8601)
     //
     // ===============================================================
 
@@ -92,24 +104,27 @@ service cloud.firestore {
     // Domain Validators
     // ===============================================================
     function isValidProduct(data) {
-      return hasOnlyAllowedFields(['id', 'name', 'description', 'price', 'category', 'image', 'rating', 'reviews', 'stock']) &&
+      return hasOnlyAllowedFields(['id', 'name', 'description', 'price', 'category', 'image', 'images', 'rating', 'reviews', 'stock', 'isStockOut']) &&
              data.id is string && data.id.size() > 0 &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.price is number && data.price > 0 &&
              data.category is string && data.category.size() > 0 && data.category.size() < 50 &&
              isValidUrl(data.image) &&
+             (!('images' in data) || data.images is list) &&
              (!('description' in data) || (data.description is string && data.description.size() < 1000)) &&
              (!('rating' in data) || (data.rating is number && data.rating >= 0 && data.rating <= 5)) &&
              (!('reviews' in data) || (data.reviews is number && data.reviews >= 0)) &&
-             (!('stock' in data) || (data.stock is number && data.stock >= 0));
+             (!('stock' in data) || (data.stock is number && data.stock >= 0)) &&
+             (!('isStockOut' in data) || data.isStockOut is bool);
     }
 
     function isValidUser(data) {
-      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt', 'deliveryInfo']) &&
+      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt', 'deliveryInfo', 'wishlist']) &&
              data.uid is string && data.uid == request.auth.uid &&
              data.email is string && isValidEmail(data.email) &&
              data.role in ['admin', 'user'] &&
              isValidDateString(data.createdAt) &&
+             (!('wishlist' in data) || data.wishlist is list) &&
              (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 100)) &&
              (!('photoURL' in data) || isValidUrl(data.photoURL)) &&
              (!('deliveryInfo' in data) || (
@@ -166,7 +181,7 @@ service cloud.firestore {
     }
 
     function isValidSettings(data) {
-      return hasOnlyAllowedFields(['heroTitle', 'heroSubtitle', 'heroImages', 'featuredTitle', 'featuredSubtitle', 'newsletterTitle', 'newsletterSubtitle', 'newsletterDescription', 'footerText', 'aboutTitle', 'aboutText', 'contactEmail', 'contactPhone', 'contactAddress', 'banners']) &&
+      return hasOnlyAllowedFields(['heroTitle', 'heroSubtitle', 'heroImages', 'featuredTitle', 'featuredSubtitle', 'newsletterTitle', 'newsletterSubtitle', 'newsletterDescription', 'footerText', 'shippingText', 'aboutTitle', 'aboutText', 'contactEmail', 'contactPhone', 'contactAddress', 'banners']) &&
              data.heroTitle is string &&
              data.heroSubtitle is string &&
              data.heroImages is list &&
@@ -176,6 +191,7 @@ service cloud.firestore {
              data.newsletterSubtitle is string &&
              data.newsletterDescription is string &&
              data.footerText is string &&
+             (!('shippingText' in data) || data.shippingText is string) &&
              (!('aboutTitle' in data) || data.aboutTitle is string) &&
              (!('aboutText' in data) || data.aboutText is string) &&
              (!('contactEmail' in data) || data.contactEmail is string) &&
@@ -184,13 +200,33 @@ service cloud.firestore {
              (!('banners' in data) || data.banners is list);
     }
 
+    function isValidReview(data) {
+      return hasOnlyAllowedFields(['userId', 'userName', 'rating', 'comment', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.userName is string && data.userName.size() > 0 &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+             data.comment is string && data.comment.size() > 0 && data.comment.size() < 1000 &&
+             isValidDateString(data.createdAt);
+    }
+
     // ===============================================================
     // Match Rules
     // ===============================================================
     match /products/{productId} {
       allow read: if true; // Products are public
-      allow create, update: if isAdmin() && isValidProduct(request.resource.data);
+      allow create: if isAdmin() && isValidProduct(request.resource.data);
+      allow update: if (isAdmin() && isValidProduct(request.resource.data)) ||
+                      (isAuthenticated() && 
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'reviews']) &&
+                       request.resource.data.rating is number &&
+                       request.resource.data.reviews is number);
       allow delete: if isAdmin();
+
+      match /reviews/{reviewId} {
+        allow read: if true;
+        allow create: if isAuthenticated() && isValidReview(request.resource.data);
+        allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      }
     }
 
     match /settings/{docId} {

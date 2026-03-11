@@ -1,3 +1,12 @@
+export interface Review {
+  id: string;
+  userId: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -5,9 +14,11 @@ export interface Product {
   price: number;
   category: string;
   image: string;
+  images?: string[];
   rating?: number;
   reviews?: number;
   stock?: number;
+  isStockOut?: boolean;
 }
 
 export interface CartItem extends Product {
@@ -21,6 +32,7 @@ export interface UserProfile {
   photoURL?: string;
   role: 'admin' | 'user';
   createdAt: string;
+  wishlist?: string[];
   deliveryInfo?: {
     name: string;
     phone: string;
@@ -60,6 +72,7 @@ export interface SiteContent {
   contactPhone?: string;
   contactAddress?: string;
   banners?: Banner[];
+  shippingText?: string;
 }
 
 export interface PaymentSettings {
@@ -72,7 +85,7 @@ export interface Order {
   userId: string;
   items: CartItem[];
   total: number;
-  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled' | 'draft';
   paymentMethod: 'bKash' | 'Nagad' | 'Cash on Delivery';
   customerInfo: {
     name: string;

@@ -24,7 +24,7 @@ export default function Hero() {
   };
 
   return (
-    <section className="relative h-[60vh] flex items-center justify-center overflow-hidden bg-black">
+    <section className="relative min-h-[80vh] py-20 flex items-center justify-center overflow-hidden bg-black">
       {/* Background Slider */}
       <AnimatePresence mode="wait">
         <motion.div
@@ -74,7 +74,7 @@ export default function Hero() {
         </>
       )}
 
-      <div className="max-w-7xl mx-auto px-6 relative z-20 text-center space-y-6">
+      <div className="max-w-7xl mx-auto px-6 relative z-20 text-center space-y-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -88,7 +88,7 @@ export default function Hero() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1 }}
-          className="text-5xl md:text-7xl font-bold tracking-tighter leading-[0.9] text-white whitespace-pre-line"
+          className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter leading-[0.9] text-white whitespace-pre-line"
         >
           {content.heroTitle}
         </motion.h1>
@@ -97,7 +97,7 @@ export default function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="max-w-xl mx-auto text-lg text-white/80 font-medium"
+          className="max-w-2xl mx-auto text-lg md:text-xl text-white/80 font-medium"
         >
           {content.heroSubtitle}
         </motion.p>
@@ -106,13 +106,19 @@ export default function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4"
+          className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4"
         >
-          <button className="px-8 py-4 bg-white text-black rounded-2xl font-bold flex items-center gap-2 hover:bg-gray-100 transition-colors active:scale-95">
+          <button 
+            onClick={() => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' })}
+            className="w-full sm:w-auto px-8 py-4 bg-white text-black rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-gray-100 transition-all active:scale-95 shadow-xl shadow-white/10"
+          >
             Shop Collection
             <ArrowRight className="w-4 h-4" />
           </button>
-          <button className="px-8 py-4 bg-white/10 backdrop-blur-md text-white border border-white/20 rounded-2xl font-bold hover:bg-white/20 transition-colors active:scale-95">
+          <button 
+            onClick={() => document.getElementById('lookbook')?.scrollIntoView({ behavior: 'smooth' })}
+            className="w-full sm:w-auto px-8 py-4 bg-white/10 backdrop-blur-md text-white border border-white/20 rounded-2xl font-bold hover:bg-white/20 transition-all active:scale-95"
+          >
             View Lookbook
           </button>
         </motion.div>

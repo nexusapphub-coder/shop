@@ -127,7 +127,7 @@ export default function Navbar({
                 >
                   <div className="px-4 py-3 border-b border-gray-50 mb-2">
                     <p className="text-sm font-bold truncate">{user.displayName}</p>
-                    <p className="text-[10px] text-gray-400 truncate">{user.email}</p>
+                    <p className="text-xs text-gray-400 truncate">{user.email}</p>
                   </div>
                   <Link
                     to="/profile"
@@ -176,7 +176,7 @@ export default function Navbar({
           >
             <ShoppingCart className="w-5 h-5" />
             {cartCount > 0 && (
-              <span className="absolute top-0 right-0 bg-black text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
+              <span className="absolute -top-1 -right-1 bg-black text-white text-[11px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">
                 {cartCount}
               </span>
             )}

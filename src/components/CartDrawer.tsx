@@ -85,34 +85,34 @@ export default function CartDrawer({
                     </div>
                     <div className="flex-1 space-y-1">
                       <div className="flex justify-between items-start">
-                        <h3 className="text-sm font-medium text-gray-900">{item.name}</h3>
+                        <h3 className="text-sm font-bold text-gray-900 line-clamp-1">{item.name}</h3>
                         <button
                           onClick={() => onRemove(item.id)}
-                          className="text-gray-400 hover:text-red-500 transition-colors"
+                          className="text-gray-400 hover:text-red-500 transition-colors p-1"
                         >
                           <X className="w-4 h-4" />
                         </button>
                       </div>
-                      <p className="text-xs text-gray-500">{item.category}</p>
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center border border-gray-200 rounded-lg">
+                      <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium">{item.category}</p>
+                      <div className="flex items-center justify-between mt-3">
+                        <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden">
                           <button
                             onClick={() => onUpdateQuantity(item.id, -1)}
-                            className="p-1 hover:bg-gray-50 transition-colors"
+                            className="p-2 hover:bg-gray-50 transition-colors"
                           >
-                            <Minus className="w-3 h-3" />
+                            <Minus className="w-3.5 h-3.5" />
                           </button>
-                          <span className="w-8 text-center text-xs font-medium">
+                          <span className="w-10 text-center text-sm font-bold">
                             {item.quantity}
                           </span>
                           <button
                             onClick={() => onUpdateQuantity(item.id, 1)}
-                            className="p-1 hover:bg-gray-50 transition-colors"
+                            className="p-2 hover:bg-gray-50 transition-colors"
                           >
-                            <Plus className="w-3 h-3" />
+                            <Plus className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                        <p className="text-sm font-bold">{formatPrice(item.price * item.quantity)}</p>
+                        <p className="text-base font-black">{formatPrice(item.price * item.quantity)}</p>
                       </div>
                     </div>
                   </div>

@@ -67,6 +67,7 @@ export default function MyOrdersPage() {
 
   const getStatusIcon = (status: Order['status']) => {
     switch (status) {
+      case 'draft': return <Clock className="w-5 h-5 text-gray-400" />;
       case 'pending': return <Clock className="w-5 h-5 text-amber-500" />;
       case 'confirmed': return <CheckCircle className="w-5 h-5 text-blue-500" />;
       case 'shipped': return <Truck className="w-5 h-5 text-indigo-500" />;
@@ -78,6 +79,7 @@ export default function MyOrdersPage() {
 
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
+      case 'draft': return 'bg-gray-50 text-gray-500 border-gray-100';
       case 'pending': return 'bg-amber-50 text-amber-700 border-amber-100';
       case 'confirmed': return 'bg-blue-50 text-blue-700 border-blue-100';
       case 'shipped': return 'bg-indigo-50 text-indigo-700 border-indigo-100';
@@ -190,12 +192,13 @@ export default function MyOrdersPage() {
                       <div className="relative flex justify-between">
                         <div className="absolute top-4 left-0 w-full h-0.5 bg-gray-100 -z-0" />
                         {[
+                          { label: 'Draft', status: 'draft' },
                           { label: 'Pending', status: 'pending' },
                           { label: 'Confirmed', status: 'confirmed' },
                           { label: 'Shipped', status: 'shipped' },
                           { label: 'Delivered', status: 'delivered' }
                         ].map((step, idx) => {
-                          const statuses = ['pending', 'confirmed', 'shipped', 'delivered'];
+                          const statuses = ['draft', 'pending', 'confirmed', 'shipped', 'delivered'];
                           const currentIdx = statuses.indexOf(order.status);
                           const stepIdx = statuses.indexOf(step.status);
                           const isCompleted = stepIdx <= currentIdx;

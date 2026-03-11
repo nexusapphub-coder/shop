@@ -34,8 +34,10 @@ export default function AdminPage() {
     price: 0,
     category: '',
     image: '',
+    images: [],
     description: '',
-    stock: 0
+    stock: 0,
+    isStockOut: false
   });
 
   const handleFileUpload = async (file: File, path: string) => {
@@ -267,14 +269,15 @@ export default function AdminPage() {
       } else {
         await addDoc(collection(db, productsPath), {
           ...formData,
-          id: Date.now().toString(), // Firestore will generate its own ID, but we keep this for consistency if needed
+          id: Date.now().toString(),
           rating: 0,
-          reviews: 0
+          reviews: 0,
+          isStockOut: formData.isStockOut || false
         });
       }
       setIsModalOpen(false);
       setEditingProduct(null);
-      setFormData({ name: '', price: 0, category: '', image: '', description: '', stock: 0 });
+      setFormData({ name: '', price: 0, category: '', image: '', images: [], description: '', stock: 0, isStockOut: false });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, productsPath);
     }
@@ -374,9 +377,9 @@ export default function AdminPage() {
             >
               <ShoppingCart className="w-4 h-4" />
               Orders
-              {orders.filter(o => o.status === 'pending').length > 0 && (
+              {orders.filter(o => o.status === 'pending' || o.status === 'draft').length > 0 && (
                 <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
-                  {orders.filter(o => o.status === 'pending').length}
+                  {orders.filter(o => o.status === 'pending' || o.status === 'draft').length}
                 </span>
               )}
             </button>
@@ -408,7 +411,7 @@ export default function AdminPage() {
                 <button
                   onClick={() => {
                     setEditingProduct(null);
-                    setFormData({ name: '', price: 0, category: '', image: '', description: '', stock: 0 });
+                    setFormData({ name: '', price: 0, category: '', image: '', images: [], description: '', stock: 0 });
                     setIsModalOpen(true);
                   }}
                   className="bg-black text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-900 transition-all shadow-lg shadow-black/10"
@@ -465,9 +468,9 @@ export default function AdminPage() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${product.stock > 10 ? 'bg-green-500' : product.stock > 0 ? 'bg-amber-500' : 'bg-red-500'}`} />
-                            <span className={`text-sm font-bold ${product.stock === 0 ? 'text-red-500' : 'text-gray-700'}`}>
-                              {product.stock} in stock
+                            <div className={`w-2 h-2 rounded-full ${product.isStockOut ? 'bg-red-500' : product.stock > 10 ? 'bg-green-500' : product.stock > 0 ? 'bg-amber-500' : 'bg-red-500'}`} />
+                            <span className={`text-sm font-bold ${product.isStockOut || product.stock === 0 ? 'text-red-500' : 'text-gray-700'}`}>
+                              {product.isStockOut ? 'Stock Out' : `${product.stock} in stock`}
                             </span>
                           </div>
                         </td>
@@ -502,6 +505,10 @@ export default function AdminPage() {
               <h2 className="text-xl font-bold">Customer Orders</h2>
               <div className="flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-gray-400 rounded-full" />
+                  <span className="text-gray-500">Draft</span>
+                </div>
+                <div className="flex items-center gap-2">
                   <div className="w-3 h-3 bg-amber-500 rounded-full" />
                   <span className="text-gray-500">Pending</span>
                 </div>
@@ -526,11 +533,13 @@ export default function AdminPage() {
                     <div className="p-6 border-b border-gray-50 flex flex-wrap items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
                         <div className={`p-3 rounded-2xl ${
+                          order.status === 'draft' ? 'bg-gray-50 text-gray-400' :
                           order.status === 'pending' ? 'bg-amber-50 text-amber-600' :
                           order.status === 'confirmed' ? 'bg-green-50 text-green-600' :
                           'bg-gray-50 text-gray-600'
                         }`}>
-                          {order.status === 'pending' ? <Clock className="w-6 h-6" /> :
+                          {order.status === 'draft' ? <Clock className="w-6 h-6" /> :
+                           order.status === 'pending' ? <Clock className="w-6 h-6" /> :
                            order.status === 'confirmed' ? <CheckCircle className="w-6 h-6" /> :
                            <Package className="w-6 h-6" />}
                         </div>
@@ -540,6 +549,14 @@ export default function AdminPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
+                        {order.status === 'draft' && (
+                          <button
+                            onClick={() => updateOrderStatus(order.id, 'pending')}
+                            className="bg-amber-500 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-amber-600 transition-all"
+                          >
+                            Mark as Pending
+                          </button>
+                        )}
                         {order.status === 'pending' && (
                           <button
                             onClick={() => updateOrderStatus(order.id, 'confirmed')}
@@ -553,6 +570,7 @@ export default function AdminPage() {
                           onChange={(e) => updateOrderStatus(order.id, e.target.value as any)}
                           className="bg-gray-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-black"
                         >
+                          <option value="draft">Draft</option>
                           <option value="pending">Pending</option>
                           <option value="confirmed">Confirmed</option>
                           <option value="shipped">Shipped</option>
@@ -733,6 +751,16 @@ export default function AdminPage() {
                       value={siteFormData.newsletterSubtitle}
                       onChange={(e) => setSiteFormData({ ...siteFormData, newsletterSubtitle: e.target.value })}
                       className="w-full bg-gray-50 border border-transparent rounded-xl px-4 py-3 focus:outline-none focus:bg-white focus:border-black transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Shipping Text</label>
+                    <input
+                      type="text"
+                      value={siteFormData.shippingText || ''}
+                      onChange={(e) => setSiteFormData({ ...siteFormData, shippingText: e.target.value })}
+                      className="w-full bg-gray-50 border border-transparent rounded-xl px-4 py-3 focus:outline-none focus:bg-white focus:border-black transition-all"
+                      placeholder="e.g. Free shipping on orders over ৳500"
                     />
                   </div>
                 </div>
@@ -1082,6 +1110,16 @@ export default function AdminPage() {
                       className="w-full bg-gray-50 border border-transparent rounded-xl px-4 py-3 focus:outline-none focus:bg-white focus:border-black transition-all"
                     />
                   </div>
+                  <div className="space-y-2 flex items-center gap-3 pt-6">
+                    <input
+                      type="checkbox"
+                      id="isStockOut"
+                      checked={formData.isStockOut || false}
+                      onChange={(e) => setFormData({ ...formData, isStockOut: e.target.checked })}
+                      className="w-5 h-5 rounded border-gray-300 text-black focus:ring-black"
+                    />
+                    <label htmlFor="isStockOut" className="text-sm font-bold text-gray-700">Mark as Stock Out</label>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -1123,6 +1161,72 @@ export default function AdminPage() {
                         <img src={formData.image} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       </div>
                     )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Additional Images (Slider)</label>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {(formData.images || []).map((url, index) => (
+                        <div key={index} className="relative group flex gap-2">
+                          <input
+                            type="url"
+                            value={url}
+                            onChange={(e) => {
+                              const newImages = [...(formData.images || [])];
+                              newImages[index] = e.target.value;
+                              setFormData({ ...formData, images: newImages });
+                            }}
+                            className="flex-1 bg-gray-50 border border-transparent rounded-xl px-4 py-3 focus:outline-none focus:bg-white focus:border-black transition-all"
+                            placeholder="Additional image URL"
+                          />
+                          <label className={cn(
+                            "cursor-pointer p-3 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors flex items-center justify-center",
+                            isUploading && "opacity-50 cursor-not-allowed"
+                          )}>
+                            {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept="image/*"
+                              disabled={isUploading}
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const uploadedUrl = await handleFileUpload(file, 'products');
+                                  if (uploadedUrl) {
+                                    const newImages = [...(formData.images || [])];
+                                    newImages[index] = uploadedUrl;
+                                    setFormData({ ...formData, images: newImages });
+                                  }
+                                }
+                              }}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newImages = (formData.images || []).filter((_, i) => i !== index);
+                              setFormData({ ...formData, images: newImages });
+                            }}
+                            className="p-3 text-gray-400 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({
+                        ...formData,
+                        images: [...(formData.images || []), '']
+                      })}
+                      className="text-xs font-bold bg-gray-100 text-gray-600 px-4 py-2 rounded-xl hover:bg-gray-200 transition-colors flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" /> Add Another Image
+                    </button>
                   </div>
                 </div>
 

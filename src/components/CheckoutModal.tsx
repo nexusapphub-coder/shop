@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { X, CreditCard, Phone, MapPin, User, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, CreditCard, Phone, MapPin, User, Loader2, CheckCircle2, Copy } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Product, CartItem, Order, PaymentSettings } from '../types';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useFirebase } from '../contexts/FirebaseContext';
+import { cn } from '../utils';
 
 interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
   items: CartItem[];
   total: number;
-  onSubmit: (orderData: Omit<Order, 'userId' | 'status' | 'createdAt'>) => Promise<void>;
+  onSubmit: (orderData: Omit<Order, 'userId' | 'status' | 'createdAt'>, status: Order['status']) => Promise<void>;
+  isStandalone?: boolean;
 }
 
-export default function CheckoutModal({ isOpen, onClose, items, total, onSubmit }: CheckoutModalProps) {
+export default function CheckoutModal({ isOpen, onClose, items, total, onSubmit, isStandalone }: CheckoutModalProps) {
   const { profile } = useFirebase();
-  const [step, setStep] = useState<'info' | 'payment' | 'success'>('info');
+  const [step, setStep] = useState<'info' | 'payment' | 'instructions' | 'success'>('info');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [division, setDivision] = useState('');
@@ -71,7 +73,15 @@ export default function CheckoutModal({ isOpen, onClose, items, total, onSubmit 
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  const handleClose = () => {
+    if (step === 'instructions' && !isSubmitting) {
+      completeOrder('draft');
+    } else {
+      onClose();
+    }
+  };
+
+  if (!isOpen && !isStandalone) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +90,17 @@ export default function CheckoutModal({ isOpen, onClose, items, total, onSubmit 
       return;
     }
 
+    if (step === 'payment') {
+      if (paymentMethod === 'Cash on Delivery') {
+        await completeOrder('pending');
+      } else {
+        setStep('instructions');
+      }
+      return;
+    }
+  };
+
+  const completeOrder = async (status: Order['status']) => {
     setIsSubmitting(true);
     try {
       await onSubmit({
@@ -99,7 +120,7 @@ export default function CheckoutModal({ isOpen, onClose, items, total, onSubmit 
           area,
           houseRoad
         }
-      });
+      }, status);
       setStep('success');
     } catch (error) {
       console.error('Checkout failed:', error);
@@ -122,18 +143,38 @@ export default function CheckoutModal({ isOpen, onClose, items, total, onSubmit 
     window.open(urls[method], '_blank');
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-white w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
-        <div className="relative p-8">
-          <button 
-            onClick={onClose}
-            className="absolute top-6 right-6 p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
+  const modalContent = (
+    <div 
+      className={cn(
+        "bg-white w-full overflow-hidden flex flex-col",
+        isStandalone ? "" : "max-w-lg rounded-[2.5rem] shadow-2xl animate-in fade-in zoom-in duration-300 max-h-[90vh]"
+      )}
+      onClick={(e) => e.stopPropagation()}
+    >
+        {/* Header */}
+        <div className="px-8 py-6 border-b border-gray-50 flex items-center justify-between bg-white shrink-0">
+          <div className="space-y-1">
+            <h2 className="text-2xl font-bold tracking-tight">Checkout</h2>
+            <p className="text-sm text-gray-500 font-medium">
+              {step === 'info' ? 'Delivery Details' : 
+               step === 'payment' ? 'Payment Method' : 
+               step === 'instructions' ? 'Payment Guide' : 
+               'Order Confirmed'}
+            </p>
+          </div>
+          {!isStandalone && (
+            <button 
+              onClick={handleClose}
+              className="p-3 hover:bg-gray-50 rounded-2xl transition-colors text-gray-400 hover:text-black"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+        </div>
 
-          {step === 'success' ? (
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className="p-8">
+            {step === 'success' ? (
             <div className="py-12 text-center space-y-6">
               <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto">
                 <CheckCircle2 className="w-10 h-10 text-green-500" />
@@ -163,7 +204,9 @@ export default function CheckoutModal({ isOpen, onClose, items, total, onSubmit 
               <div className="space-y-2">
                 <h2 className="text-3xl font-bold">Checkout</h2>
                 <p className="text-gray-500">
-                  {step === 'info' ? 'Please provide your delivery details' : 'Choose your preferred payment method'}
+                  {step === 'info' ? 'Please provide your delivery details' : 
+                   step === 'payment' ? 'Choose your preferred payment method' : 
+                   'Payment Instructions'}
                 </p>
               </div>
 
@@ -293,47 +336,8 @@ export default function CheckoutModal({ isOpen, onClose, items, total, onSubmit 
                     />
                   </div>
                 </div>
-              ) : (
+              ) : step === 'payment' ? (
                 <div className="space-y-6">
-                  {paymentMethod !== 'Cash on Delivery' && (
-                    <div className="p-6 bg-gray-50 rounded-3xl space-y-4 border border-gray-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Order Reference ID</span>
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(orderId)}
-                          className="text-xs font-bold text-black flex items-center gap-1 hover:opacity-70 transition-opacity"
-                        >
-                          {copied ? (
-                            <>
-                              <CheckCircle2 className="w-3 h-3 text-green-500" />
-                              Copied!
-                            </>
-                          ) : (
-                            <>
-                              <CreditCard className="w-3 h-3" />
-                              Copy ID
-                            </>
-                          )}
-                        </button>
-                      </div>
-                      <p className="font-mono font-bold text-center text-lg tracking-wider bg-white py-3 rounded-xl border border-gray-100">
-                        {orderId}
-                      </p>
-                      <p className="text-[10px] text-center text-gray-500">
-                        Please use this Order ID as the <span className="font-bold text-black">Reference</span> when making the payment.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => openPaymentApp(paymentMethod as 'bKash' | 'Nagad')}
-                        className="w-full bg-black text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-gray-800 transition-all"
-                      >
-                        <Phone className="w-4 h-4" />
-                        Open {paymentMethod} App
-                      </button>
-                    </div>
-                  )}
-
                   <div className="space-y-3">
                     {[
                       { id: 'Cash on Delivery', icon: CreditCard, label: 'Cash on Delivery' },
@@ -370,38 +374,137 @@ export default function CheckoutModal({ isOpen, onClose, items, total, onSubmit 
                     ))}
                   </div>
                 </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="p-8 bg-gradient-to-br from-gray-50 to-white rounded-[2rem] border-2 border-dashed border-gray-200 space-y-6 text-center">
+                    <div className="w-16 h-16 bg-black text-white rounded-full flex items-center justify-center mx-auto shadow-xl">
+                      <Phone className="w-8 h-8" />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-bold">Official Payment Guide</h3>
+                      <p className="text-sm text-gray-500 leading-relaxed">
+                        To complete your order, please follow these steps carefully:
+                      </p>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4 text-left">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-6 h-6 bg-black text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</div>
+                          <p className="text-sm">Send Money to: <span className="font-bold text-black select-all">{paymentMethod === 'bKash' ? paymentSettings?.bkashNumber : paymentSettings?.nagadNumber}</span></p>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => copyToClipboard(paymentMethod === 'bKash' ? paymentSettings?.bkashNumber || '' : paymentSettings?.nagadNumber || '')}
+                          className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-black"
+                          title="Copy Number"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-6 h-6 bg-black text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">2</div>
+                          <p className="text-sm">Use Reference: <span className="font-bold text-black select-all">{orderId}</span></p>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => copyToClipboard(orderId)}
+                          className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-black"
+                          title="Copy Reference"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                      </div>
+                      {copied && (
+                        <p className="text-xs text-center text-emerald-500 font-bold animate-pulse">Copied to clipboard!</p>
+                      )}
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-black text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">3</div>
+                        <p className="text-sm">Come back here to confirm your payment status.</p>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => openPaymentApp(paymentMethod as 'bKash' | 'Nagad')}
+                        className="inline-flex items-center gap-2 text-sm font-bold text-black hover:underline"
+                      >
+                        <Phone className="w-4 h-4" />
+                        Open {paymentMethod} App
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => completeOrder('pending')}
+                      disabled={isSubmitting}
+                      className="bg-black text-white py-4 rounded-2xl font-bold hover:bg-gray-900 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                      {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Payment Done'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => completeOrder('draft')}
+                      disabled={isSubmitting}
+                      className="bg-gray-100 text-gray-600 py-4 rounded-2xl font-bold hover:bg-gray-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                      {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Not Done'}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-center text-gray-400">
+                    * If you click "Not Done", your order will be saved as a draft.
+                  </p>
+                </div>
               )}
 
-              <div className="pt-4 space-y-4">
-                <div className="flex items-center justify-between text-lg font-bold">
-                  <span>Total Amount</span>
-                  <span>${total.toFixed(2)}</span>
-                </div>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full bg-black text-white py-4 rounded-2xl font-bold hover:bg-gray-900 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    step === 'info' ? 'Next: Payment Method' : 'Confirm Order'
-                  )}
-                </button>
-                {step === 'payment' && (
+              {step !== 'instructions' && (
+                <div className="pt-4 space-y-4">
+                  <div className="flex items-center justify-between text-lg font-bold">
+                    <span>Total Amount</span>
+                    <span>৳{total.toFixed(2)}</span>
+                  </div>
                   <button
-                    type="button"
-                    onClick={() => setStep('info')}
-                    className="w-full py-2 text-gray-500 font-medium hover:text-black transition-colors"
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full bg-black text-white py-4 rounded-2xl font-bold hover:bg-gray-900 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                   >
-                    Back to delivery info
+                    {isSubmitting ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      step === 'info' ? 'Next: Payment Method' : 'Confirm Order'
+                    )}
                   </button>
-                )}
-              </div>
+                  {step === 'payment' && (
+                    <button
+                      type="button"
+                      onClick={() => setStep('info')}
+                      className="w-full py-2 text-gray-500 font-medium hover:text-black transition-colors"
+                    >
+                      Back to delivery info
+                    </button>
+                  )}
+                </div>
+              )}
             </form>
           )}
+          </div>
         </div>
       </div>
+  );
+
+  if (isStandalone) {
+    return modalContent;
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
+      {modalContent}
     </div>
   );
 }

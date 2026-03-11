@@ -9,6 +9,7 @@ import AdminPage from './pages/AdminPage';
 import MyOrdersPage from './pages/MyOrdersPage';
 import ProfilePage from './pages/ProfilePage';
 import ProductDetailsPage from './pages/ProductDetailsPage';
+import CheckoutPage from './pages/CheckoutPage';
 import { Product, CartItem, Order } from './types';
 import { motion } from 'motion/react';
 import { getStyleGuide } from './services/gemini';
@@ -222,13 +223,13 @@ function HomePage() {
     setIsCartOpen(false);
   };
 
-  const handlePlaceOrder = async (orderData: Omit<Order, 'userId' | 'status' | 'createdAt'>) => {
+  const handlePlaceOrder = async (orderData: Omit<Order, 'userId' | 'status' | 'createdAt'>, status: Order['status'] = 'pending') => {
     if (!user) return;
     
     const newOrder: Order = {
       ...orderData,
       userId: user.uid,
-      status: 'pending',
+      status: status,
       createdAt: new Date().toISOString()
     };
 
@@ -293,7 +294,7 @@ function HomePage() {
         <Hero />
 
         {siteContent.banners && siteContent.banners.length > 0 && (
-          <section className="max-w-7xl mx-auto px-6 py-12">
+          <section id="lookbook" className="max-w-7xl mx-auto px-6 py-12">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {siteContent.banners.map((banner) => (
                 <Link 
@@ -317,7 +318,7 @@ function HomePage() {
           </section>
         )}
 
-        <section className="max-w-7xl mx-auto px-6 py-24 space-y-12">
+        <section id="products" className="max-w-7xl mx-auto px-6 py-24 space-y-12">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="space-y-2">
               <h2 className="text-3xl font-bold tracking-tight">{siteContent.featuredTitle}</h2>
@@ -346,7 +347,7 @@ function HomePage() {
               <Loader2 className="w-8 h-8 animate-spin text-gray-200" />
             </div>
           ) : filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-x-3 gap-y-6">
               {filteredProducts.map((product) => (
                 <ProductCard
                   key={product.id}
@@ -531,6 +532,7 @@ function AppContent() {
           <Route path="/orders" element={<MyOrdersPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/product/:id" element={<ProductDetailsPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
         </Routes>
       </div>
     </BrowserRouter>
