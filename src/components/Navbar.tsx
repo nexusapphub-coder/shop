@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingCart, Search, User, Menu, X, LogOut, LayoutDashboard } from 'lucide-react';
+import { ShoppingCart, Search, User, Menu, X, LogOut, LayoutDashboard, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../utils';
 import { User as FirebaseUser } from 'firebase/auth';
@@ -129,6 +129,32 @@ export default function Navbar({
                     <p className="text-sm font-bold truncate">{user.displayName}</p>
                     <p className="text-[10px] text-gray-400 truncate">{user.email}</p>
                   </div>
+                  <Link
+                    to="/profile"
+                    onClick={() => setIsUserMenuOpen(false)}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-xl transition-colors"
+                  >
+                    <User className="w-4 h-4" />
+                    My Profile
+                  </Link>
+                  <Link
+                    to="/orders"
+                    onClick={() => setIsUserMenuOpen(false)}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-xl transition-colors"
+                  >
+                    <Package className="w-4 h-4" />
+                    My Orders
+                  </Link>
+                  {profile?.role === 'admin' && (
+                    <Link
+                      to="/admin"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-xl transition-colors"
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      Admin Panel
+                    </Link>
+                  )}
                   <button
                     onClick={() => {
                       onLogout();
@@ -188,6 +214,13 @@ export default function Navbar({
                   {cat === 'All' ? 'Shop All' : cat}
                 </button>
               ))}
+              <Link 
+                to="/orders" 
+                className="text-left text-gray-500 hover:text-gray-600 transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                My Orders
+              </Link>
               <a 
                 href="https://nexus-appshub.netlify.app/" 
                 target="_blank" 

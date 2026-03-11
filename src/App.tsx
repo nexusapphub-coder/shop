@@ -6,16 +6,19 @@ import ProductCard from './components/ProductCard';
 import CartDrawer from './components/CartDrawer';
 import Modal from './components/Modal';
 import AdminPage from './pages/AdminPage';
+import MyOrdersPage from './pages/MyOrdersPage';
+import ProfilePage from './pages/ProfilePage';
 import ProductDetailsPage from './pages/ProductDetailsPage';
-import { Product, CartItem } from './types';
+import { Product, CartItem, Order } from './types';
 import { motion } from 'motion/react';
 import { getStyleGuide } from './services/gemini';
-import { Sparkles, Loader2, AlertCircle } from 'lucide-react';
+import { Sparkles, Loader2, AlertCircle, ShoppingBag } from 'lucide-react';
 import { useFirebase, OperationType, handleFirestoreError } from './contexts/FirebaseContext';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from './firebase';
 
 import { useSiteContent } from './hooks/useSiteContent';
+import CheckoutModal from './components/CheckoutModal';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -85,6 +88,9 @@ function HomePage() {
   const [styleGuide, setStyleGuide] = React.useState<{ product: Product; content: string } | null>(null);
   const [isLoadingStyleGuide, setIsLoadingStyleGuide] = React.useState(false);
   const [productsLoading, setProductsLoading] = React.useState(true);
+  const [isCheckoutOpen, setIsCheckoutOpen] = React.useState(false);
+  const [checkoutItems, setCheckoutItems] = React.useState<CartItem[]>([]);
+  const [checkoutTotal, setCheckoutTotal] = React.useState(0);
 
   // Fetch products from Firestore
   useEffect(() => {
@@ -195,6 +201,58 @@ function HomePage() {
     }
   };
 
+  const handleBuyNow = (product: Product) => {
+    if (!user) {
+      signIn();
+      return;
+    }
+    const item: CartItem = {
+      ...product,
+      quantity: 1
+    };
+    setCheckoutItems([item]);
+    setCheckoutTotal(product.price);
+    setIsCheckoutOpen(true);
+  };
+
+  const handleCartCheckout = () => {
+    setCheckoutItems(cartItems);
+    setCheckoutTotal(cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0));
+    setIsCheckoutOpen(true);
+    setIsCartOpen(false);
+  };
+
+  const handlePlaceOrder = async (orderData: Omit<Order, 'userId' | 'status' | 'createdAt'>) => {
+    if (!user) return;
+    
+    const newOrder: Order = {
+      ...orderData,
+      userId: user.uid,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      await setDoc(doc(db, 'orders', orderData.id), newOrder);
+      
+      // Save delivery info to user profile
+      await updateDoc(doc(db, 'users', user.uid), {
+        deliveryInfo: orderData.customerInfo
+      });
+      
+      // Clear cart if the order was from cart
+      if (orderData.items.length === cartItems.length && orderData.items.every(item => cartItems.some(ci => ci.id === item.id))) {
+        const batch = writeBatch(db);
+        cartItems.forEach(item => {
+          batch.delete(doc(db, `users/${user.uid}/cart`, item.id));
+        });
+        await batch.commit();
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'orders');
+    }
+  };
+
   const showStyleGuide = async (product: Product) => {
     setIsLoadingStyleGuide(true);
     try {
@@ -294,6 +352,7 @@ function HomePage() {
                   key={product.id}
                   product={product}
                   onAddToCart={addToCart}
+                  onBuyNow={handleBuyNow}
                   onShowStyleGuide={showStyleGuide}
                 />
               ))}
@@ -393,6 +452,15 @@ function HomePage() {
         items={cartItems}
         onUpdateQuantity={updateQuantity}
         onRemove={removeFromCart}
+        onCheckout={handleCartCheckout}
+      />
+
+      <CheckoutModal
+        isOpen={isCheckoutOpen}
+        onClose={() => setIsCheckoutOpen(false)}
+        items={checkoutItems}
+        total={checkoutTotal}
+        onSubmit={handlePlaceOrder}
       />
 
       <Modal
@@ -460,6 +528,8 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/orders" element={<MyOrdersPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/product/:id" element={<ProductDetailsPage />} />
         </Routes>
       </div>

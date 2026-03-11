@@ -10,6 +10,7 @@ interface CartDrawerProps {
   items: CartItem[];
   onUpdateQuantity: (id: string, delta: number) => void;
   onRemove: (id: string) => void;
+  onCheckout: () => void;
 }
 
 export default function CartDrawer({
@@ -18,6 +19,7 @@ export default function CartDrawer({
   items,
   onUpdateQuantity,
   onRemove,
+  onCheckout,
 }: CartDrawerProps) {
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
@@ -134,7 +136,10 @@ export default function CartDrawer({
                     <span>{formatPrice(subtotal)}</span>
                   </div>
                 </div>
-                <button className="w-full bg-black text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-gray-900 transition-colors active:scale-[0.98]">
+                <button 
+                  onClick={onCheckout}
+                  className="w-full bg-black text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-gray-900 transition-colors active:scale-[0.98]"
+                >
                   Checkout
                   <ArrowRight className="w-4 h-4" />
                 </button>

@@ -7,11 +7,12 @@ import { Link } from 'react-router-dom';
 interface ProductCardProps {
   product: Product;
   onAddToCart: (product: Product) => void;
+  onBuyNow: (product: Product) => void;
   onShowStyleGuide: (product: Product) => void;
   key?: string | number;
 }
 
-export default function ProductCard({ product, onAddToCart, onShowStyleGuide }: ProductCardProps) {
+export default function ProductCard({ product, onAddToCart, onBuyNow, onShowStyleGuide }: ProductCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -31,13 +32,12 @@ export default function ProductCard({ product, onAddToCart, onShowStyleGuide }: 
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 pointer-events-none" />
         
         <div className="absolute bottom-4 left-4 right-4 flex flex-col gap-2 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
-          <Link
-            to={`/product/${product.id}`}
-            className="w-full bg-white text-black py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-gray-50 active:scale-95 shadow-xl"
+          <button
+            onClick={() => onBuyNow(product)}
+            className="w-full bg-white text-black py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-50 active:scale-95 shadow-xl"
           >
-            <Eye className="w-4 h-4" />
-            View Details
-          </Link>
+            Buy Now
+          </button>
           <div className="flex gap-2">
             <button
               onClick={() => onAddToCart(product)}

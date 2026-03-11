@@ -105,23 +105,64 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt']) &&
+      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt', 'deliveryInfo']) &&
              data.uid is string && data.uid == request.auth.uid &&
              data.email is string && isValidEmail(data.email) &&
              data.role in ['admin', 'user'] &&
              isValidDateString(data.createdAt) &&
              (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 100)) &&
-             (!('photoURL' in data) || isValidUrl(data.photoURL));
+             (!('photoURL' in data) || isValidUrl(data.photoURL)) &&
+             (!('deliveryInfo' in data) || (
+               data.deliveryInfo is map &&
+               data.deliveryInfo.name is string &&
+               data.deliveryInfo.phone is string &&
+               data.deliveryInfo.division is string &&
+               data.deliveryInfo.zilla is string &&
+               data.deliveryInfo.upozilla is string &&
+               data.deliveryInfo.thana is string &&
+               data.deliveryInfo.ward is string &&
+               data.deliveryInfo.postalCode is string &&
+               data.deliveryInfo.area is string &&
+               data.deliveryInfo.houseRoad is string
+             ));
     }
 
     function isValidCartItem(data) {
-      return hasOnlyAllowedFields(['id', 'name', 'price', 'quantity', 'image', 'category']) &&
+      return hasOnlyAllowedFields(['id', 'name', 'price', 'quantity', 'image', 'category', 'description', 'rating', 'reviews', 'stock']) &&
              data.id is string && data.id.size() > 0 &&
              data.name is string && data.name.size() > 0 &&
              data.price is number && data.price > 0 &&
              data.quantity is number && data.quantity > 0 &&
              isValidUrl(data.image) &&
              data.category is string;
+    }
+
+    function isValidOrder(data) {
+      return hasOnlyAllowedFields(['id', 'userId', 'items', 'total', 'status', 'paymentMethod', 'customerInfo', 'createdAt']) &&
+             data.id is string &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.items is list &&
+             data.total is number && data.total >= 0 &&
+             data.status in ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] &&
+             data.paymentMethod in ['bKash', 'Nagad', 'Cash on Delivery'] &&
+             data.customerInfo is map &&
+             data.customerInfo.name is string &&
+             data.customerInfo.phone is string &&
+             data.customerInfo.division is string &&
+             data.customerInfo.zilla is string &&
+             data.customerInfo.upozilla is string &&
+             data.customerInfo.thana is string &&
+             data.customerInfo.ward is string &&
+             data.customerInfo.postalCode is string &&
+             data.customerInfo.area is string &&
+             data.customerInfo.houseRoad is string &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidPaymentSettings(data) {
+      return hasOnlyAllowedFields(['bkashNumber', 'nagadNumber']) &&
+             (!('bkashNumber' in data) || data.bkashNumber is string) &&
+             (!('nagadNumber' in data) || data.nagadNumber is string);
     }
 
     function isValidSettings(data) {
@@ -154,7 +195,14 @@ service cloud.firestore {
 
     match /settings/{docId} {
       allow read: if true; // Site settings are public
-      allow write: if isAdmin() && isValidSettings(request.resource.data);
+      allow write: if isAdmin() && (docId != 'payment' || isValidPaymentSettings(request.resource.data)) && (docId != 'site_content' || isValidSettings(request.resource.data));
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidOrder(request.resource.data);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     match /users/{userId} {

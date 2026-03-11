@@ -41,9 +41,46 @@
         "price": { "type": "number" },
         "quantity": { "type": "integer" },
         "image": { "type": "string" },
-        "category": { "type": "string" }
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviews": { "type": "number" },
+        "stock": { "type": "integer" }
       },
       "required": ["id", "name", "price", "quantity"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A customer order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "items": { "type": "array", "items": { "$ref": "CartItem" } },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "shipped", "delivered", "cancelled"] },
+        "paymentMethod": { "type": "string", "enum": ["bKash", "Nagad", "Cash on Delivery"] },
+        "customerInfo": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "phone": { "type": "string" },
+            "address": { "type": "string" }
+          },
+          "required": ["name", "phone", "address"]
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "items", "total", "status", "paymentMethod", "customerInfo", "createdAt"]
+    },
+    "PaymentSettings": {
+      "title": "PaymentSettings",
+      "description": "Payment configuration for bKash and Nagad",
+      "type": "object",
+      "properties": {
+        "bkashNumber": { "type": "string" },
+        "nagadNumber": { "type": "string" }
+      }
     },
     "SiteSettings": {
       "title": "SiteSettings",
@@ -97,6 +134,10 @@
     "/users/{userId}/cart/{itemId}": {
       "schema": "CartItem",
       "description": "User's shopping cart items"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Customer orders"
     }
   }
 }

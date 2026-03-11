@@ -21,35 +21,41 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data() as UserProfile;
-          // Ensure the default admin always has the admin role
-          if (user.email === 'nexus.apphub@gmail.com' && data.role !== 'admin') {
-            const updatedProfile = { ...data, role: 'admin' as const };
-            await setDoc(doc(db, 'users', user.uid), updatedProfile);
-            setProfile(updatedProfile);
+      try {
+        setUser(user);
+        if (user) {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data() as UserProfile;
+            // Ensure the default admin always has the admin role
+            if (user.email === 'nexus.apphub@gmail.com' && data.role !== 'admin') {
+              const updatedProfile = { ...data, role: 'admin' as const };
+              await setDoc(doc(db, 'users', user.uid), updatedProfile);
+              setProfile(updatedProfile);
+            } else {
+              setProfile(data);
+            }
           } else {
-            setProfile(data);
+            const newProfile: UserProfile = {
+              uid: user.uid,
+              email: user.email || '',
+              displayName: user.displayName || '',
+              photoURL: user.photoURL || undefined,
+              role: user.email === 'nexus.apphub@gmail.com' ? 'admin' : 'user',
+              createdAt: new Date().toISOString(),
+            };
+            await setDoc(doc(db, 'users', user.uid), newProfile);
+            setProfile(newProfile);
           }
         } else {
-          const newProfile: UserProfile = {
-            uid: user.uid,
-            email: user.email || '',
-            displayName: user.displayName || '',
-            photoURL: user.photoURL || undefined,
-            role: user.email === 'nexus.apphub@gmail.com' ? 'admin' : 'user',
-            createdAt: new Date().toISOString(),
-          };
-          await setDoc(doc(db, 'users', user.uid), newProfile);
-          setProfile(newProfile);
+          setProfile(null);
         }
-      } else {
+      } catch (error) {
+        console.error('Error in auth state change:', error);
         setProfile(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useFirebase, OperationType, handleFirestoreError } from '../contexts/FirebaseContext';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { supabase, SUPABASE_BUCKET } from '../supabase';
 import imageCompression from 'browser-image-compression';
-import { Product, SiteContent } from '../types';
-import { cn } from '../utils';
-import { Plus, Edit2, Trash2, Loader2, X, Save, Image as ImageIcon, ArrowLeft, Database, Lock, ShieldCheck, User, Settings, Package, Upload } from 'lucide-react';
+import { Product, SiteContent, Order, PaymentSettings } from '../types';
+import { cn, formatPrice } from '../utils';
+import { Plus, Edit2, Trash2, Loader2, X, Save, Image as ImageIcon, ArrowLeft, Database, Lock, ShieldCheck, User, Settings, Package, Upload, ShoppingCart, CreditCard, CheckCircle, Clock, AlertCircle, Phone, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { PRODUCTS } from '../data';
@@ -18,8 +18,10 @@ export default function AdminPage() {
   const { profile, loading: authLoading, signIn } = useFirebase();
   const { content: siteContent, updateContent: updateSiteContent, loading: siteLoading } = useSiteContent();
   const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>({ bkashNumber: '', nagadNumber: '' });
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'inventory' | 'site'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'site' | 'orders' | 'payment'>('inventory');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
@@ -110,6 +112,29 @@ export default function AdminPage() {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const ordersPath = 'orders';
+    const unsubscribe = onSnapshot(collection(db, ordersPath), (snapshot) => {
+      const items = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Order));
+      setOrders(items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, ordersPath);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const fetchPaymentSettings = async () => {
+      const docRef = doc(db, 'settings', 'payment');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setPaymentSettings(docSnap.data() as PaymentSettings);
+      }
+    };
+    fetchPaymentSettings();
   }, []);
 
   if (authLoading || loading) {
@@ -298,6 +323,24 @@ export default function AdminPage() {
     }
   };
 
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await setDoc(doc(db, 'settings', 'payment'), paymentSettings);
+      alert('Payment settings updated successfully!');
+    } catch (error) {
+      console.error('Failed to update payment settings:', error);
+    }
+  };
+
+  const updateOrderStatus = async (orderId: string, status: Order['status']) => {
+    try {
+      await updateDoc(doc(db, 'orders', orderId), { status });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'orders');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pt-24 pb-12 px-6">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -313,10 +356,10 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-gray-100">
+          <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-gray-100 overflow-x-auto no-scrollbar">
             <button
               onClick={() => setActiveTab('inventory')}
-              className={`px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${
+              className={`px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${
                 activeTab === 'inventory' ? 'bg-black text-white shadow-lg' : 'text-gray-500 hover:text-black'
               }`}
             >
@@ -324,8 +367,31 @@ export default function AdminPage() {
               Inventory
             </button>
             <button
+              onClick={() => setActiveTab('orders')}
+              className={`px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${
+                activeTab === 'orders' ? 'bg-black text-white shadow-lg' : 'text-gray-500 hover:text-black'
+              }`}
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Orders
+              {orders.filter(o => o.status === 'pending').length > 0 && (
+                <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
+                  {orders.filter(o => o.status === 'pending').length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('payment')}
+              className={`px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${
+                activeTab === 'payment' ? 'bg-black text-white shadow-lg' : 'text-gray-500 hover:text-black'
+              }`}
+            >
+              <CreditCard className="w-4 h-4" />
+              Payment
+            </button>
+            <button
               onClick={() => setActiveTab('site')}
-              className={`px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${
+              className={`px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${
                 activeTab === 'site' ? 'bg-black text-white shadow-lg' : 'text-gray-500 hover:text-black'
               }`}
             >
@@ -338,36 +404,36 @@ export default function AdminPage() {
         {activeTab === 'inventory' ? (
           <div className="space-y-8">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold">Product Catalog</h2>
-              <div className="flex items-center gap-3">
-                {products.length === 0 && (
-                  <button
-                    onClick={seedDatabase}
-                    className="bg-white text-black border border-gray-200 px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 transition-colors"
-                  >
-                    <Database className="w-5 h-5" />
-                    Seed Sample Data
-                  </button>
-                )}
+              <div className="flex items-center gap-4">
                 <button
                   onClick={() => {
                     setEditingProduct(null);
                     setFormData({ name: '', price: 0, category: '', image: '', description: '', stock: 0 });
                     setIsModalOpen(true);
                   }}
-                  className="bg-black text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-900 transition-colors"
+                  className="bg-black text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-900 transition-all shadow-lg shadow-black/10"
                 >
                   <Plus className="w-5 h-5" />
                   Add Product
                 </button>
+                <button
+                  onClick={seedDatabase}
+                  className="bg-white text-gray-600 px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 border border-gray-100 transition-all"
+                >
+                  <Database className="w-5 h-5" />
+                  Seed Database
+                </button>
+              </div>
+              <div className="text-sm text-gray-500 font-medium bg-white px-4 py-2 rounded-lg border border-gray-100">
+                Total Products: <span className="text-black font-bold">{products.length}</span>
               </div>
             </div>
 
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left">
+                <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-gray-50">
+                    <tr className="bg-gray-50/50 border-b border-gray-100">
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-400">Product</th>
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-400">Category</th>
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-400">Price</th>
@@ -377,42 +443,47 @@ export default function AdminPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {products.map((product) => (
-                      <tr key={product.id} className="hover:bg-gray-50 transition-colors group">
+                      <tr key={product.id} className="hover:bg-gray-50/50 transition-colors group">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
+                            <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0 border border-gray-100 group-hover:scale-105 transition-transform">
                               <img src={product.image} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                             </div>
-                            <div>
-                              <p className="font-bold text-gray-900">{product.name}</p>
-                              <p className="text-xs text-gray-500 truncate max-w-[200px]">{product.description}</p>
+                            <div className="min-w-0">
+                              <p className="font-bold text-gray-900 truncate">{product.name}</p>
+                              <p className="text-xs text-gray-500 truncate">{product.id}</p>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="px-3 py-1 bg-gray-100 rounded-full text-xs font-medium text-gray-600">
+                          <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-bold">
                             {product.category}
                           </span>
                         </td>
-                        <td className="px-6 py-4 font-mono font-medium">
-                          ${product.price.toFixed(2)}
+                        <td className="px-6 py-4 font-bold text-gray-900">
+                          {formatPrice(product.price)}
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`text-sm font-medium ${product.stock && product.stock < 5 ? 'text-red-500' : 'text-gray-600'}`}>
-                            {product.stock || 0} units
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${product.stock > 10 ? 'bg-green-500' : product.stock > 0 ? 'bg-amber-500' : 'bg-red-500'}`} />
+                            <span className={`text-sm font-bold ${product.stock === 0 ? 'text-red-500' : 'text-gray-700'}`}>
+                              {product.stock} in stock
+                            </span>
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => openEditModal(product)}
-                              className="p-2 hover:bg-black hover:text-white rounded-lg transition-all"
+                              className="p-2 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-all"
+                              title="Edit"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDelete(product.id)}
-                              className="p-2 hover:bg-red-500 hover:text-white rounded-lg transition-all text-red-500"
+                              className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                              title="Delete"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -425,6 +496,177 @@ export default function AdminPage() {
               </div>
             </div>
           </div>
+        ) : activeTab === 'orders' ? (
+          <div className="space-y-8">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold">Customer Orders</h2>
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-amber-500 rounded-full" />
+                  <span className="text-gray-500">Pending</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full" />
+                  <span className="text-gray-500">Confirmed</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-6">
+              {orders.length === 0 ? (
+                <div className="bg-white rounded-3xl p-12 text-center space-y-4 border border-gray-100">
+                  <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto">
+                    <ShoppingCart className="w-8 h-8 text-gray-300" />
+                  </div>
+                  <p className="text-gray-500">No orders found yet.</p>
+                </div>
+              ) : (
+                orders.map((order) => (
+                  <div key={order.id} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="p-6 border-b border-gray-50 flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className={`p-3 rounded-2xl ${
+                          order.status === 'pending' ? 'bg-amber-50 text-amber-600' :
+                          order.status === 'confirmed' ? 'bg-green-50 text-green-600' :
+                          'bg-gray-50 text-gray-600'
+                        }`}>
+                          {order.status === 'pending' ? <Clock className="w-6 h-6" /> :
+                           order.status === 'confirmed' ? <CheckCircle className="w-6 h-6" /> :
+                           <Package className="w-6 h-6" />}
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-lg">{order.id}</h3>
+                          <p className="text-sm text-gray-500">{new Date(order.createdAt).toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {order.status === 'pending' && (
+                          <button
+                            onClick={() => updateOrderStatus(order.id, 'confirmed')}
+                            className="bg-black text-white px-6 py-2.5 rounded-xl font-bold hover:bg-gray-900 transition-all"
+                          >
+                            Confirm Order
+                          </button>
+                        )}
+                        <select
+                          value={order.status}
+                          onChange={(e) => updateOrderStatus(order.id, e.target.value as any)}
+                          className="bg-gray-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-black"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="confirmed">Confirmed</option>
+                          <option value="shipped">Shipped</option>
+                          <option value="delivered">Delivered</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="p-6 grid md:grid-cols-3 gap-8">
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400">Customer Info</h4>
+                        <div className="space-y-2">
+                          <p className="font-bold">{order.customerInfo.name}</p>
+                          <p className="text-sm text-gray-500 flex items-center gap-2">
+                            <Phone className="w-4 h-4" /> {order.customerInfo.phone}
+                          </p>
+                          <p className="text-sm text-gray-500 flex items-start gap-2">
+                            <MapPin className="w-4 h-4 mt-0.5" />
+                            <span>
+                              {order.customerInfo.houseRoad}, {order.customerInfo.area}<br />
+                              Ward {order.customerInfo.ward}, {order.customerInfo.thana}<br />
+                              {order.customerInfo.upozilla}, {order.customerInfo.zilla}<br />
+                              {order.customerInfo.division} - {order.customerInfo.postalCode}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400">Order Items</h4>
+                        <div className="space-y-3">
+                          {order.items.map((item, idx) => (
+                            <div key={idx} className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                                <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold truncate">{item.name}</p>
+                                <p className="text-xs text-gray-500">{item.quantity}x {formatPrice(item.price)}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400">Payment Details</h4>
+                        <div className="p-4 bg-gray-50 rounded-2xl space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Method</span>
+                            <span className="font-bold">{order.paymentMethod}</span>
+                          </div>
+                          <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200">
+                            <span>Total</span>
+                            <span>{formatPrice(order.total)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        ) : activeTab === 'payment' ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8"
+          >
+            <div className="max-w-xl space-y-8">
+              <div className="space-y-2">
+                <h2 className="text-xl font-bold">Payment Methods</h2>
+                <p className="text-gray-500 text-sm">Configure your bKash and Nagad numbers for customer payments.</p>
+              </div>
+
+              <form onSubmit={handlePaymentSubmit} className="space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-gray-400">bKash Number</label>
+                    <div className="relative">
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        value={paymentSettings.bkashNumber}
+                        onChange={(e) => setPaymentSettings({ ...paymentSettings, bkashNumber: e.target.value })}
+                        placeholder="e.g. 017XXXXXXXX"
+                        className="w-full bg-gray-50 border border-transparent rounded-xl pl-12 pr-4 py-3 focus:outline-none focus:bg-white focus:border-black transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Nagad Number</label>
+                    <div className="relative">
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        value={paymentSettings.nagadNumber}
+                        onChange={(e) => setPaymentSettings({ ...paymentSettings, nagadNumber: e.target.value })}
+                        placeholder="e.g. 018XXXXXXXX"
+                        className="w-full bg-gray-50 border border-transparent rounded-xl pl-12 pr-4 py-3 focus:outline-none focus:bg-white focus:border-black transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="bg-black text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-2 hover:bg-gray-900 transition-colors"
+                >
+                  <Save className="w-5 h-5" />
+                  Save Payment Settings
+                </button>
+              </form>
+            </div>
+          </motion.div>
         ) : (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
